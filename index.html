@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>카운터</title>
+
+    <!-- 웹사이트 주소 앞에 표시되는 로고 -->
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <!-- 휴대폰 홈 화면 등에 추가되는 아이콘 -->
+    <link rel="apple-touch-icon" href="logo.png">
+
+    <!-- 웹앱/바로가기 아이콘 설정 -->
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 30px 15px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        #date {
+            color: #777;
+            margin-bottom: 20px;
+        }
+
+        #number {
+            font-size: 70px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .count-button {
+            width: 100px;
+            height: 60px;
+            font-size: 30px;
+            margin: 5px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .count-button:hover {
+            opacity: 0.8;
+        }
+
+        .reset-button {
+            display: block;
+            width: 220px;
+            margin: 20px auto;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: #ddd;
+            cursor: pointer;
+        }
+
+        .reset-button:hover {
+            background-color: #ccc;
+        }
+
+        .records {
+            margin-top: 30px;
+            background-color: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: left;
+        }
+
+        /* 날짜별 기록 접기/펼치기 버튼 */
+        .records-toggle {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            background: none;
+            border: none;
+            padding: 5px 0;
+
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .records-toggle:hover {
+            opacity: 0.7;
+        }
+
+        /* 날짜별 기록 내용 */
+        .record-content {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .record-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .record-info {
+            font-size: 15px;
+        }
+
+        .delete-button {
+            border: none;
+            background-color: #eee;
+            padding: 6px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .delete-button:hover {
+            background-color: #ddd;
+        }
+
+        .average {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #eee;
+            text-align: center;
+        }
+
+        .average-title {
+            font-size: 15px;
+            color: #777;
+        }
+
+        #averageNumber {
+            font-size: 28px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>카운터</h1>
+
+    <div id="date"></div>
+
+    <div id="number">0</div>
+
+    <button class="count-button" onclick="decrease()">−</button>
+    <button class="count-button" onclick="increase()">+</button>
+
+    <button class="reset-button" onclick="resetToday()">
+        오늘 카운트 초기화
+    </button>
+
+
+    <!-- 날짜별 기록 -->
+    <div class="records">
+
+        <button class="records-toggle" onclick="toggleRecords()">
+            <span>날짜별 기록</span>
+            <span id="toggleIcon">▼</span>
+        </button>
+
+        <div id="recordContent" class="record-content">
+            <div id="recordList"></div>
+        </div>
+
+
+        <!-- 평균 -->
+        <div class="average">
+            <div class="average-title">
+                평균 카운트
+            </div>
+
+            <div id="averageNumber">
+                0
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    /* ==============================
+       오늘 날짜 가져오기
+    ============================== */
+
+    function getToday() {
+
+        const date = new Date();
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+
+        return `${year}-${month}-${day}`;
+    }
+
+
+    /* ==============================
+       저장된 기록 불러오기
+    ============================== */
+
+    let records =
+        JSON.parse(localStorage.getItem("counterRecords")) || {};
+
+    let excludedDates =
+        JSON.parse(localStorage.getItem("excludedDates")) || {};
+
+
+    const today = getToday();
+
+
+    /* ==============================
+       기록 저장
+    ============================== */
+
+    function saveRecords() {
+
+        localStorage.setItem(
+            "counterRecords",
+            JSON.stringify(records)
+        );
+
+        localStorage.setItem(
+            "excludedDates",
+            JSON.stringify(excludedDates)
+        );
+    }
+
+
+    /* ==============================
+       화면 업데이트
+    ============================== */
+
+    function updateScreen() {
+
+        document.getElementById("date").textContent = today;
+
+        if (records[today] === undefined) {
+
+            document.getElementById("number").textContent = 0;
+
+        } else {
+
+            document.getElementById("number").textContent =
+                records[today];
+        }
+
+        updateRecordList();
+        updateAverage();
+    }
+
+
+    /* ==============================
+       + 버튼
+    ============================== */
+
+    function increase() {
+
+        if (records[today] === undefined) {
+
+            records[today] = 0;
+
+            delete excludedDates[today];
+        }
+
+        records[today]++;
+
+        saveRecords();
+        updateScreen();
+    }
+
+
+    /* ==============================
+       - 버튼
+    ============================== */
+
+    function decrease() {
+
+        if (records[today] === undefined) {
+
+            records[today] = 0;
+
+            delete excludedDates[today];
+        }
+
+        records[today]--;
+
+        saveRecords();
+        updateScreen();
+    }
+
+
+    /* ==============================
+       오늘 카운트 초기화
+    ============================== */
+
+    function resetToday() {
+
+        const answer = confirm(
+            "오늘 카운트를 초기화할까요?\n\n초기화된 기록은 평균 계산에서 제외됩니다."
+        );
+
+        if (!answer) {
+            return;
+        }
+
+        records[today] = 0;
+
+        excludedDates[today] = true;
+
+        saveRecords();
+        updateScreen();
+    }
+
+
+    /* ==============================
+       날짜별 기록 접기 / 펼치기
+    ============================== */
+
+    function toggleRecords() {
+
+        const content =
+            document.getElementById("recordContent");
+
+        const icon =
+            document.getElementById("toggleIcon");
+
+
+        if (content.style.display === "none" ||
+            content.style.display === "") {
+
+            content.style.display = "block";
+
+            icon.textContent = "▲";
+
+        } else {
+
+            content.style.display = "none";
+
+            icon.textContent = "▼";
+        }
+    }
+
+
+    /* ==============================
+       날짜별 기록 표시
+    ============================== */
+
+    function updateRecordList() {
+
+        const recordList =
+            document.getElementById("recordList");
+
+        recordList.innerHTML = "";
+
+
+        const dates =
+            Object.keys(records).sort().reverse();
+
+
+        dates.forEach(function(date) {
+
+            const row =
+                document.createElement("div");
+
+            row.className = "record-row";
+
+
+            const info =
+                document.createElement("div");
+
+            info.className = "record-info";
+
+
+            let text =
+                `${date} : ${records[date]}회`;
+
+
+            if (excludedDates[date]) {
+
+                text += " (초기화됨)";
+            }
+
+
+            info.textContent = text;
+
+
+            const deleteButton =
+                document.createElement("button");
+
+            deleteButton.className = "delete-button";
+
+            deleteButton.textContent = "삭제";
+
+
+            deleteButton.onclick = function() {
+
+                deleteRecord(date);
+
+            };
+
+
+            row.appendChild(info);
+
+            row.appendChild(deleteButton);
+
+            recordList.appendChild(row);
+
+        });
+
+
+        /* 기록이 하나도 없을 때 */
+
+        if (dates.length === 0) {
+
+            const empty =
+                document.createElement("div");
+
+            empty.textContent =
+                "저장된 기록이 없습니다.";
+
+            empty.style.color = "#999";
+            empty.style.padding = "10px 0";
+
+            recordList.appendChild(empty);
+        }
+    }
+
+
+    /* ==============================
+       날짜 기록 삭제
+    ============================== */
+
+    function deleteRecord(date) {
+
+        const answer = confirm(
+            `${date} 기록을 삭제할까요?\n\n삭제된 기록은 평균 계산에서도 제외됩니다.`
+        );
+
+
+        if (!answer) {
+            return;
+        }
+
+
+        delete records[date];
+
+        delete excludedDates[date];
+
+
+        saveRecords();
+
+        updateScreen();
+    }
+
+
+    /* ==============================
+       평균 계산
+    ============================== */
+
+    function updateAverage() {
+
+        const dates =
+            Object.keys(records);
+
+
+        let total = 0;
+
+        let validCount = 0;
+
+
+        dates.forEach(function(date) {
+
+            /* 초기화된 기록은 평균에서 제외 */
+
+            if (excludedDates[date]) {
+                return;
+            }
+
+
+            total += records[date];
+
+            validCount++;
+
+        });
+
+
+        let average = 0;
+
+
+        if (validCount > 0) {
+
+            average =
+                total / validCount;
+        }
+
+
+        document.getElementById("averageNumber")
+            .textContent = average.toFixed(2);
+    }
+
+
+    /* ==============================
+       프로그램 시작
+    ============================== */
+
+    updateScreen();
+
+</script>
+
+</body>
+</html>
